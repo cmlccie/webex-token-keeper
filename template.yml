@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: webex-token-keeper
+
+Globals:
+  Function:
+    Runtime: python3.7
+    Timeout: 270
+
+Parameters:
+  SomeVar:
+    Type: String
+    Description: My SomeVar
+    Default: default value
+
+Resources:
+  WebexTokenKeeper:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: wtk.handler
+      Events:
+        Base:
+          Type: Api
+          Properties:
+            Method: any
+            Path: /
+            RestApiId: !Ref Api
+        Others:
+          Type: Api
+          Properties:
+            Method: any
+            Path: /{proxy+}
+            RestApiId: !Ref Api
+
+  Api:
+    Type: "AWS::Serverless::Api"
+    Properties:
+      StageName: Prod
+      Domain:
+        DomainName: tokenkeeper.cmlccie.io
+        CertificateArn: arn:aws:acm:us-east-1:067069894079:certificate/f4135468-6b23-4594-a736-dbdb2afc2456
+        Route53:
+          HostedZoneId: Z1H5XT5O7MA6OD
+      BinaryMediaTypes:
+        - "~1"
+      DefinitionBody:
+        openapi: "3.0"
+        info:
+          title: !Ref "AWS::StackName"
+          version: "1.0"
+        paths:
+          /:
+            x-amazon-apigateway-any-method:
+              responses:
+                {}
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebexTokenKeeper.Arn}/invocations"
+          /{proxy+}:
+            x-amazon-apigateway-any-method:
+              responses:
+                {}
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebexTokenKeeper.Arn}/invocations"
+
+Outputs:
+  WebexTokenKeeperApi:
+    Description: "API Gateway endpoint URL for Prod Webex Token Keeper app"
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  WebexTokenKeeperFunction:
+    Description: "Webex Token Keeper Function ARN"
+    Value: !GetAtt WebexTokenKeeper.Arn
+  WebexTokenKeeperFunctionIamRole:
+    Description: "Implicit IAM Role created for the Webex Token Keeper function"
+    Value: !GetAtt WebexTokenKeeperRole.Arn
