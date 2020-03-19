@@ -1,2 +1,8 @@
 # Ignore local (development) Pipfile.lock
 /Pipfile.lock
+
+# Ignore local AWS serverless configuration files
+/samconfig.toml
+
+# Ignore AWS build artifacts
+/.aws-sam/
