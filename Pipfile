@@ -7,6 +7,8 @@ verify_ssl = true
 aws-sam-cli = "*"
 
 [packages]
+mangum = {extras = ["full"],version = "*"}
+fastapi = "*"
 
 [requires]
 python_version = "3.7"
