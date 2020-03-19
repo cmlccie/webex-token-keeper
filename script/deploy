@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Deploy the Webex Token Keeper app
+
+set -e
+cd "$(dirname "$0")/.."
+
+sam build
+sam deploy --parameter-overrides "DomainName=$WTK_DOMAIN_NAME CertificateArn=$WTK_CERTIFICATE_ARN HostedZoneId=$WTK_HOSTED_ZONE_ID"
