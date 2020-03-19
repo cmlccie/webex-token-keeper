@@ -1,0 +1,2 @@
+# Ignore local (development) Pipfile.lock
+/Pipfile.lock
