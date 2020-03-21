@@ -4,5 +4,6 @@
 set -e
 cd "$(dirname "$0")/.."
 
+pipenv lock -r > src/requirements.txt
 sam build
-sam deploy --parameter-overrides "DomainName=$WTK_DOMAIN_NAME CertificateArn=$WTK_CERTIFICATE_ARN HostedZoneId=$WTK_HOSTED_ZONE_ID"
+sam deploy --parameter-overrides "DomainName=$WTK_DOMAIN_NAME CertificateArn=$WTK_CERTIFICATE_ARN HostedZoneId=$WTK_HOSTED_ZONE_ID WebexTeamsClientId=$WEBEX_TEAMS_CLIENT_ID WebexTeamsClientSecret=$WEBEX_TEAMS_CLIENT_SECRET WebexTeamsRedirectUri=$WEBEX_TEAMS_REDIRECT_URI WebexTeamsOauthAuthorizationUrl=$WEBEX_TEAMS_OAUTH_AUTHORIZATION_URL"

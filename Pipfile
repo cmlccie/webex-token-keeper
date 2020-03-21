@@ -9,6 +9,9 @@ aws-sam-cli = "*"
 [packages]
 mangum = {extras = ["full"],version = "*"}
 fastapi = "*"
+jinja2 = "*"
+boto3 = "*"
+webexteamssdk = "*"
 
 [requires]
 python_version = "3.7"

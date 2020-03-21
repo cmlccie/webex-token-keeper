@@ -8,17 +8,61 @@ Globals:
     Timeout: 270
 
 Parameters:
-  SomeVar:
+  DomainName:
     Type: String
-    Description: My SomeVar
-    Default: default value
+    Description: Custom domain name for the API gateway
+  HostedZoneId:
+    Type: String
+    Description: ID of the Route 53 zone where the custom domain is hosted
+  CertificateArn:
+    Type: String
+    Description: ARN for the certificate to be used by the API gateway
+  TableName:
+    Type: String
+    Description: Name of the DynamoDB table
+    Default: "webex-token-keeper"
+  WebexTeamsClientId:
+    Type: String
+    Description: Webex Teams integration Client ID
+  WebexTeamsClientSecret:
+    Type: String
+    Description: Webex Teams integration Client Secret
+  WebexTeamsRedirectUri:
+    Type: String
+    Description: Webex Token Keeper URI to redirect users to after OAuth authorization flow
+  WebexTeamsOauthAuthorizationUrl:
+    Type: String
+    Description: Webex Teams OAuth authorization URL
 
 Resources:
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      AttributeDefinitions:
+        - AttributeName: user_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_key
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
   WebexTokenKeeper:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/
       Handler: wtk.handler
+      Environment:
+        Variables:
+          AWS_REGION_NAME: !Ref AWS::Region
+          WTK_TABLE_NAME: !Ref TableName
+          WEBEX_TEAMS_CLIENT_ID: !Ref WebexTeamsClientId
+          WEBEX_TEAMS_CLIENT_SECRET: !Ref WebexTeamsClientSecret
+          WEBEX_TEAMS_REDIRECT_URI: !Ref WebexTeamsRedirectUri
+          WEBEX_TEAMS_OAUTH_AUTHORIZATION_URL: !Ref WebexTeamsOauthAuthorizationUrl
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TableName
       Events:
         Base:
           Type: Api
@@ -38,10 +82,10 @@ Resources:
     Properties:
       StageName: Prod
       Domain:
-        DomainName: tokenkeeper.cmlccie.io
-        CertificateArn: arn:aws:acm:us-east-1:067069894079:certificate/f4135468-6b23-4594-a736-dbdb2afc2456
+        DomainName: !Ref DomainName
+        CertificateArn: !Ref CertificateArn
         Route53:
-          HostedZoneId: Z1H5XT5O7MA6OD
+          HostedZoneId: !Ref HostedZoneId
       BinaryMediaTypes:
         - "~1"
       DefinitionBody:
