@@ -24,6 +24,8 @@ __description__ = "Store dynamic Webex OAuth tokens and make them " \
 __version__ = "0.2"
 __author__ = "Chris Lunsford"
 __author_email__ = "chris@cmlccie.com"
+__copyright__ = "Copyright (c) 2020 Chris Lunsford."
+__license__ = "MIT"
 
 
 # Constants
