@@ -21,7 +21,7 @@ from starlette.responses import RedirectResponse
 __title__ = "Webex Token Keeper"
 __description__ = "Store dynamic Webex OAuth tokens and make them " \
                   "accessible via a static key."
-__version__ = "0.1"
+__version__ = "0.2"
 __author__ = "Chris Lunsford"
 __author_email__ = "chris@cmlccie.com"
 
