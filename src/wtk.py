@@ -1,11 +1,11 @@
 """Webex Token Keeper - AWS Serverless Application."""
 
+import json
 import logging
 import os
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-import json
 
 import boto3
 import webexteamssdk
