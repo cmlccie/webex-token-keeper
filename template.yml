@@ -1,10 +1,10 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: webex-token-keeper
 
 Globals:
   Function:
-    Runtime: python3.7
+    Runtime: python3.12
     Timeout: 270
 
 Parameters:
@@ -21,18 +21,24 @@ Parameters:
     Type: String
     Description: Name of the DynamoDB table
     Default: "webex-token-keeper"
-  WebexTeamsClientId:
+  WebexIntegrationClientId:
     Type: String
-    Description: Webex Teams integration Client ID
-  WebexTeamsClientSecret:
+    Description: Webex Integration Client ID
+  WebexIntegrationClientSecret:
     Type: String
-    Description: Webex Teams integration Client Secret
-  WebexTeamsRedirectUri:
+    Description: Webex Integration Client Secret
+  WebexIntegrationRedirectUri:
     Type: String
     Description: Webex Token Keeper URI to redirect users to after OAuth authorization flow
-  WebexTeamsOauthAuthorizationUrl:
+  WebexIntegrationRedirectUriUrlEncoded:
     Type: String
-    Description: Webex Teams OAuth authorization URL
+    Description: Webex Token Keeper URI to redirect users to after OAuth authorization flow (URL encoded)
+  WebexIntegrationOauthAuthorizationUrl:
+    Type: String
+    Description: Webex Integration OAuth authorization URL
+  WebexIntegrationOauthScopes:
+    Type: CommaDelimitedList
+    Description: Webex Integration OAuth scopes
 
 Resources:
   DynamoDBTable:
@@ -56,10 +62,21 @@ Resources:
         Variables:
           AWS_REGION_NAME: !Ref AWS::Region
           WTK_TABLE_NAME: !Ref TableName
-          WEBEX_TEAMS_CLIENT_ID: !Ref WebexTeamsClientId
-          WEBEX_TEAMS_CLIENT_SECRET: !Ref WebexTeamsClientSecret
-          WEBEX_TEAMS_REDIRECT_URI: !Ref WebexTeamsRedirectUri
-          WEBEX_TEAMS_OAUTH_AUTHORIZATION_URL: !Ref WebexTeamsOauthAuthorizationUrl
+          WEBEX_INTEGRATION_CLIENT_ID: !Ref WebexIntegrationClientId
+          WEBEX_INTEGRATION_CLIENT_SECRET: !Ref WebexIntegrationClientSecret
+          WEBEX_INTEGRATION_REDIRECT_URI: !Ref WebexIntegrationRedirectUri
+          WEBEX_INTEGRATION_OAUTH_AUTHORIZATION_URL: !Join
+            - ""
+            - - !Ref WebexIntegrationOauthAuthorizationUrl
+              - "?"
+              - !Sub "client_id=${WebexIntegrationClientId}"
+              - "&response_type=code"
+              - !Sub "&redirect_uri=${WebexIntegrationRedirectUriUrlEncoded}"
+              - "&scope="
+              - !Join
+                - "%20"
+                - !Ref WebexIntegrationOauthScopes
+
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref TableName
@@ -96,16 +113,14 @@ Resources:
         paths:
           /:
             x-amazon-apigateway-any-method:
-              responses:
-                {}
+              responses: {}
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy
                 uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebexTokenKeeper.Arn}/invocations"
           /{proxy+}:
             x-amazon-apigateway-any-method:
-              responses:
-                {}
+              responses: {}
               x-amazon-apigateway-integration:
                 httpMethod: POST
                 type: aws_proxy

@@ -1,21 +1,37 @@
 [tool.poetry]
 name = "webex-token-keeper"
-version = "0.1.0"
+version = "0.2.0"
 description = "Store dynamic Webex OAuth tokens and make them accessible via a static key."
 authors = ["Chris Lunsford <chris@cmlccie.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-mangum = {version = "^0.14.1", extras = ["full"]}
-fastapi = "^0.75.1"
+python = "^3.12"
+mangum = {version = "^0.17.0", extras = ["full"]}
+fastapi = "^0.109.2"
 Jinja2 = "^3.1.1"
 boto3 = "^1.21.39"
 webexteamssdk = "^1.6"
 
-[tool.poetry.dev-dependencies]
-aws-sam-cli = "^1.46.0"
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.2.2"
+
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+
+# Assume Python 3.8
+target-version = "py39"
+
+[tool.ruff.lint]
+# B: flake8-bugbear
+# I: flake8-import-order
+# Q: flake8-quotes
+extend-select = [ "B", "I", "Q" ]
+
+ignore-init-module-imports = true

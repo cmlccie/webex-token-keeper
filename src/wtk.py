@@ -16,15 +16,15 @@ from mangum import Mangum
 from pydantic import BaseModel
 from starlette.responses import RedirectResponse
 
-
 # Module Metadata
 __title__ = "Webex Token Keeper"
-__description__ = "Store dynamic Webex OAuth tokens and make them " \
-                  "accessible via a static key."
+__description__ = (
+    "Store dynamic Webex OAuth tokens and make them " "accessible via a static key."
+)
 __version__ = "0.2"
 __author__ = "Chris Lunsford"
-__author_email__ = "chris@cmlccie.com"
-__copyright__ = "Copyright (c) 2020 Chris Lunsford."
+__author_email__ = "cm@lunsford.io"
+__copyright__ = "Copyright (c) 2020-2024 Chris Lunsford."
 __license__ = "MIT"
 
 
@@ -35,11 +35,11 @@ AWS_REGION_NAME = os.environ.get("AWS_REGION_NAME")
 
 WTK_TABLE_NAME = os.environ.get("WTK_TABLE_NAME")
 
-WEBEX_TEAMS_CLIENT_ID = os.environ.get("WEBEX_TEAMS_CLIENT_ID")
-WEBEX_TEAMS_CLIENT_SECRET = os.environ.get("WEBEX_TEAMS_CLIENT_SECRET")
-WEBEX_TEAMS_REDIRECT_URI = os.environ.get("WEBEX_TEAMS_REDIRECT_URI")
-WEBEX_TEAMS_OAUTH_AUTHORIZATION_URL = os.environ.get(
-    "WEBEX_TEAMS_OAUTH_AUTHORIZATION_URL"
+WEBEX_INTEGRATION_CLIENT_ID = os.environ.get("WEBEX_INTEGRATION_CLIENT_ID")
+WEBEX_INTEGRATION_CLIENT_SECRET = os.environ.get("WEBEX_INTEGRATION_CLIENT_SECRET")
+WEBEX_INTEGRATION_REDIRECT_URI = os.environ.get("WEBEX_INTEGRATION_REDIRECT_URI")
+WEBEX_INTEGRATION_OAUTH_AUTHORIZATION_URL = os.environ.get(
+    "WEBEX_INTEGRATION_OAUTH_AUTHORIZATION_URL"
 )
 
 
@@ -49,7 +49,7 @@ logging.getLogger().setLevel(LOG_LEVEL)
 
 here = Path(__file__).parent.resolve().absolute()
 
-dynamodb = boto3.resource('dynamodb', region_name=AWS_REGION_NAME)
+dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION_NAME)
 table = dynamodb.Table(WTK_TABLE_NAME)
 
 app = FastAPI(
@@ -57,7 +57,7 @@ app = FastAPI(
     description=__description__,
     version=__version__,
 )
-templates = Jinja2Templates(directory=here/"templates")
+templates = Jinja2Templates(directory=here / "templates")
 
 teams_api = webexteamssdk.WebexTeamsAPI("<<no token needed for integration>>")
 
@@ -65,6 +65,7 @@ teams_api = webexteamssdk.WebexTeamsAPI("<<no token needed for integration>>")
 # Data Models
 class AccessToken(BaseModel):
     """OAuth generated Access Token; with UTC token expiration timestamps."""
+
     access_token: str
     expires: datetime
     refresh_token: str
@@ -72,7 +73,7 @@ class AccessToken(BaseModel):
 
     @classmethod
     def from_webex_access_token(cls, token: webexteamssdk.AccessToken):
-        """Create a new Access Token from a Webex Teams AccessToken object."""
+        """Create a new Access Token from a Webex AccessToken object."""
         now = datetime.utcnow()
         return cls(
             access_token=token.access_token,
@@ -86,35 +87,35 @@ class AccessToken(BaseModel):
 
 # Helper Functions
 def request_access_token(code: str) -> AccessToken:
-    """Request an access token from Webex Teams.
+    """Request an access token from Webex.
 
-    Exchange an OAuth code for a refreshable access token.
+    Exchange an OAuth code for an access token.
     """
     logger.info("Requesting an access token")
-    webex_teams_access_token = teams_api.access_tokens.get(
-        client_id=WEBEX_TEAMS_CLIENT_ID,
-        client_secret=WEBEX_TEAMS_CLIENT_SECRET,
+    WEBEX_INTEGRATION_access_token = teams_api.access_tokens.get(
+        client_id=WEBEX_INTEGRATION_CLIENT_ID,
+        client_secret=WEBEX_INTEGRATION_CLIENT_SECRET,
         code=code,
-        redirect_uri=WEBEX_TEAMS_REDIRECT_URI,
+        redirect_uri=WEBEX_INTEGRATION_REDIRECT_URI,
     )
 
-    return AccessToken.from_webex_access_token(webex_teams_access_token)
+    return AccessToken.from_webex_access_token(WEBEX_INTEGRATION_access_token)
 
 
 def refresh_access_token(token: AccessToken) -> AccessToken:
-    """Refresh a Webex Teams access token."""
+    """Refresh a Webex access token."""
     logger.info("Refreshing an access token")
     logger.debug(
         f"Token expires {token.expires.isoformat()}; "
         f"refresh token expires {token.refresh_token_expires.isoformat()}"
     )
-    webex_teams_access_token = teams_api.access_tokens.refresh(
-        client_id=WEBEX_TEAMS_CLIENT_ID,
-        client_secret=WEBEX_TEAMS_CLIENT_SECRET,
+    WEBEX_INTEGRATION_access_token = teams_api.access_tokens.refresh(
+        client_id=WEBEX_INTEGRATION_CLIENT_ID,
+        client_secret=WEBEX_INTEGRATION_CLIENT_SECRET,
         refresh_token=token.refresh_token,
     )
 
-    new_token = AccessToken.from_webex_access_token(webex_teams_access_token)
+    new_token = AccessToken.from_webex_access_token(WEBEX_INTEGRATION_access_token)
     logger.debug(f"Refreshed token expires {new_token.expires.isoformat()}")
 
     return new_token
@@ -137,7 +138,7 @@ def store_access_token(user_key: str, token: AccessToken):
 def get_access_token(user_key: str) -> AccessToken:
     """Get an access token from DynamoDB; by user_key."""
     logger.info("Getting an access token from DynamoDB")
-    response = table.get_item(Key={'user_key': user_key})
+    response = table.get_item(Key={"user_key": user_key})
     token_data = response["Item"]["token"]
     return AccessToken(**token_data)
 
@@ -145,7 +146,7 @@ def get_access_token(user_key: str) -> AccessToken:
 def delete_access_token(user_key: str):
     """Delete an access token from DynamoDB; by user_key."""
     logger.info("Deleting an access token from DynamoDB")
-    table.delete_item(Key={'user_key': user_key})
+    table.delete_item(Key={"user_key": user_key})
 
 
 # Endpoints
@@ -158,11 +159,11 @@ def start_page(request: Request):
 
 @app.get("/authorize", tags=["Pages"])
 def authorization_redirect():
-    """Redirect authorization requests to the Webex Teams OAuth flow."""
-    logger.info("Redirecting to Webex Teams OAuth flow")
+    """Redirect authorization requests to the Webex OAuth flow."""
+    logger.info("Redirecting to Webex OAuth flow")
     user_key = uuid.uuid4()
     return RedirectResponse(
-        f"{WEBEX_TEAMS_OAUTH_AUTHORIZATION_URL}&state={user_key}"
+        f"{WEBEX_INTEGRATION_OAUTH_AUTHORIZATION_URL}&state={user_key}"
     )
 
 
@@ -185,7 +186,7 @@ def key_page(request: Request, state: str, code: str):
             "request": request,
             "user_key": user_key,
             "token_uri": f"/api/token/{user_key}",
-            "token": token.json(indent=2),
+            "token": token.model_dump_json(indent=2),
         },
     )
 
@@ -201,8 +202,8 @@ def get_token(key: str):
     logger.info("Serving API request to retrieve an access token")
     try:
         token = get_access_token(key)
-    except ClientError:
-        raise HTTPException(status_code=404, detail="Key not found.")
+    except ClientError as err:
+        raise HTTPException(status_code=404, detail="Key not found.") from err
 
     # Check token expiration and refresh if needed
     if (token.expires - datetime.utcnow()) < timedelta(days=7):
@@ -218,8 +219,8 @@ def delete_token(key: str):
     logger.info("Serving API request to delete an access token")
     try:
         delete_access_token(key)
-    except ClientError:
-        raise HTTPException(status_code=404, detail="Key not found.")
+    except ClientError as err:
+        raise HTTPException(status_code=404, detail="Key not found.") from err
 
 
 # AWS Lambda Handler

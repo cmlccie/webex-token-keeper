@@ -1,33 +1,37 @@
-{% extends "base.html" %}
-{% block title %}User Key{% endblock %}
-{% block content %}
-<div class="container" style="margin-top:30px">
-    <div class="row">
-        <div class="col-sm-12">
-            <h2>Success!</h2>
-            <p>
-                Here is your user key.  You may use this key to request your Webex Teams access token from the token
-                keeper API.  The token keeper will automatically refresh the token, if needed, when you request the
-                token from the token keeper API.  Please see the <a href="/docs" target="_blank">API docs</a> for more
-                information.
-            </p>
-            <table class="table">
-                <tbody>
-                    <tr>
-                        <th scope="row">User Key</th>
-                        <td><pre><code>{{ user_key }}</code></pre></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Token URI</th>
-                        <td><pre><code>{{ token_uri }}</code></pre></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Current Token</th>
-                        <td><pre><code>{{ token }}</code></pre></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+{% extends "base.html" %} {% block title %}User Key{% endblock %} {% block content %}
+<div class="container" style="margin-top: 30px">
+  <div class="row">
+    <div class="col-sm-12">
+      <h2>Success!</h2>
+      <p>
+        Here is your user key. You may use this key to request your Webex access token from the
+        token keeper API. The token keeper will automatically refresh the token, if needed, when you
+        request the token from the token keeper API. Please see the
+        <a href="/docs" target="_blank">API docs</a> for more information.
+      </p>
+      <table class="table">
+        <tbody>
+          <tr>
+            <th scope="row">User Key</th>
+            <td>
+              <pre><code>{{ user_key }}</code></pre>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Token URI</th>
+            <td>
+              <pre><code>{{ token_uri }}</code></pre>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Current Token</th>
+            <td>
+              <pre><code>{{ token }}</code></pre>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
+  </div>
 </div>
 {% endblock %}
