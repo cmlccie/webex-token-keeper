@@ -16,6 +16,8 @@ webexteamssdk = "^1.6"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.2.2"
 
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
