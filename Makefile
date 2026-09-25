@@ -1,4 +1,4 @@
-.PHONY: setup format lint clean build deploy
+.PHONY: setup update format lint test check clean build deploy
 
 setup:
 	poetry install
@@ -13,7 +13,20 @@ format:
 lint: format
 	poetry run ruff check
 
-build: lint
+test:
+	poetry run pytest
+
+# Non-mutating checks; mirrors CI
+check:
+	poetry run ruff format --check
+	poetry run ruff check
+	poetry run pytest
+	poetry export -f requirements.txt | diff -q - src/requirements.txt
+
+clean:
+	rm -rf .aws-sam .pytest_cache .ruff_cache
+
+build: lint test
 	sam build
 
 deploy: build

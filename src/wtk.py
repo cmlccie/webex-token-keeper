@@ -1,30 +1,28 @@
 """Webex Token Keeper - AWS Serverless Application."""
 
-import json
 import logging
 import os
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import boto3
-import webexteamssdk
-from botocore.exceptions import ClientError
+import webexpythonsdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 from mangum import Mangum
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from starlette.responses import RedirectResponse
 
 # Module Metadata
 __title__ = "Webex Token Keeper"
 __description__ = (
-    "Store dynamic Webex OAuth tokens and make them " "accessible via a static key."
+    "Store dynamic Webex OAuth tokens and make them accessible via a static key."
 )
-__version__ = "0.2"
+__version__ = "0.3"
 __author__ = "Chris Lunsford"
 __author_email__ = "cm@lunsford.io"
-__copyright__ = "Copyright (c) 2020-2024 Chris Lunsford."
+__copyright__ = "Copyright (c) 2020-2026 Chris Lunsford."
 __license__ = "MIT"
 
 
@@ -41,6 +39,8 @@ WEBEX_INTEGRATION_REDIRECT_URI = os.environ.get("WEBEX_INTEGRATION_REDIRECT_URI"
 WEBEX_INTEGRATION_OAUTH_AUTHORIZATION_URL = os.environ.get(
     "WEBEX_INTEGRATION_OAUTH_AUTHORIZATION_URL"
 )
+
+REFRESH_THRESHOLD = timedelta(days=7)
 
 
 # Module Variables
@@ -59,7 +59,7 @@ app = FastAPI(
 )
 templates = Jinja2Templates(directory=here / "templates")
 
-teams_api = webexteamssdk.WebexTeamsAPI("<<no token needed for integration>>")
+webex_api = webexpythonsdk.WebexAPI("<<no token needed for integration>>")
 
 
 # Data Models
@@ -71,10 +71,16 @@ class AccessToken(BaseModel):
     refresh_token: str
     refresh_token_expires: datetime
 
+    @field_validator("expires", "refresh_token_expires")
     @classmethod
-    def from_webex_access_token(cls, token: webexteamssdk.AccessToken):
+    def ensure_utc(cls, value: datetime) -> datetime:
+        """Treat naive timestamps (stored by earlier versions) as UTC."""
+        return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+    @classmethod
+    def from_webex_access_token(cls, token: webexpythonsdk.AccessToken):
         """Create a new Access Token from a Webex AccessToken object."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         return cls(
             access_token=token.access_token,
             expires=now + timedelta(seconds=token.expires_in),
@@ -92,14 +98,14 @@ def request_access_token(code: str) -> AccessToken:
     Exchange an OAuth code for an access token.
     """
     logger.info("Requesting an access token")
-    WEBEX_INTEGRATION_access_token = teams_api.access_tokens.get(
+    webex_token = webex_api.access_tokens.get(
         client_id=WEBEX_INTEGRATION_CLIENT_ID,
         client_secret=WEBEX_INTEGRATION_CLIENT_SECRET,
         code=code,
         redirect_uri=WEBEX_INTEGRATION_REDIRECT_URI,
     )
 
-    return AccessToken.from_webex_access_token(WEBEX_INTEGRATION_access_token)
+    return AccessToken.from_webex_access_token(webex_token)
 
 
 def refresh_access_token(token: AccessToken) -> AccessToken:
@@ -109,13 +115,13 @@ def refresh_access_token(token: AccessToken) -> AccessToken:
         f"Token expires {token.expires.isoformat()}; "
         f"refresh token expires {token.refresh_token_expires.isoformat()}"
     )
-    WEBEX_INTEGRATION_access_token = teams_api.access_tokens.refresh(
+    webex_token = webex_api.access_tokens.refresh(
         client_id=WEBEX_INTEGRATION_CLIENT_ID,
         client_secret=WEBEX_INTEGRATION_CLIENT_SECRET,
         refresh_token=token.refresh_token,
     )
 
-    new_token = AccessToken.from_webex_access_token(WEBEX_INTEGRATION_access_token)
+    new_token = AccessToken.from_webex_access_token(webex_token)
     logger.debug(f"Refreshed token expires {new_token.expires.isoformat()}")
 
     return new_token
@@ -127,26 +133,28 @@ def store_access_token(user_key: str, token: AccessToken):
     table.put_item(
         Item={
             "user_key": user_key,
-            # DynamoDB doesn't support datetimes; use Pydantic to convert
-            # object to JSON and parse back to data to ensure JSON
-            # serializable data is sent to DynamoDB
-            "token": json.loads(token.json()),
+            # DynamoDB doesn't support datetimes; store JSON-serializable data
+            "token": token.model_dump(mode="json"),
         }
     )
 
 
-def get_access_token(user_key: str) -> AccessToken:
+def get_access_token(user_key: str) -> AccessToken | None:
     """Get an access token from DynamoDB; by user_key."""
     logger.info("Getting an access token from DynamoDB")
     response = table.get_item(Key={"user_key": user_key})
-    token_data = response["Item"]["token"]
-    return AccessToken(**token_data)
+    item = response.get("Item")
+    return AccessToken(**item["token"]) if item else None
 
 
-def delete_access_token(user_key: str):
-    """Delete an access token from DynamoDB; by user_key."""
+def delete_access_token(user_key: str) -> bool:
+    """Delete an access token from DynamoDB; by user_key.
+
+    Returns True if a token was deleted, False if the key was not found.
+    """
     logger.info("Deleting an access token from DynamoDB")
-    table.delete_item(Key={"user_key": user_key})
+    response = table.delete_item(Key={"user_key": user_key}, ReturnValues="ALL_OLD")
+    return "Attributes" in response
 
 
 # Endpoints
@@ -154,7 +162,7 @@ def delete_access_token(user_key: str):
 def start_page(request: Request):
     """The Webex Token Keeper start page."""
     logger.info("Serving start page")
-    return templates.TemplateResponse("start.html", {"request": request})
+    return templates.TemplateResponse(request, "start.html")
 
 
 @app.get("/authorize", tags=["Pages"])
@@ -181,9 +189,9 @@ def key_page(request: Request, state: str, code: str):
 
     # Provide the information to the user
     return templates.TemplateResponse(
+        request,
         "key.html",
         {
-            "request": request,
             "user_key": user_key,
             "token_uri": f"/api/token/{user_key}",
             "token": token.model_dump_json(indent=2),
@@ -198,15 +206,13 @@ def key_page(request: Request, state: str, code: str):
 )
 def get_token(key: str):
     """Retrieve the access token for the provided key; refreshing as needed."""
-    # Retrieve the stored access token
     logger.info("Serving API request to retrieve an access token")
-    try:
-        token = get_access_token(key)
-    except ClientError as err:
-        raise HTTPException(status_code=404, detail="Key not found.") from err
+    token = get_access_token(key)
+    if token is None:
+        raise HTTPException(status_code=404, detail="Key not found.")
 
     # Check token expiration and refresh if needed
-    if (token.expires - datetime.utcnow()) < timedelta(days=7):
+    if (token.expires - datetime.now(UTC)) < REFRESH_THRESHOLD:
         token = refresh_access_token(token)
         store_access_token(key, token)
 
@@ -217,10 +223,8 @@ def get_token(key: str):
 def delete_token(key: str):
     """Delete an access token; by key ID."""
     logger.info("Serving API request to delete an access token")
-    try:
-        delete_access_token(key)
-    except ClientError as err:
-        raise HTTPException(status_code=404, detail="Key not found.") from err
+    if not delete_access_token(key):
+        raise HTTPException(status_code=404, detail="Key not found.")
 
 
 # AWS Lambda Handler
