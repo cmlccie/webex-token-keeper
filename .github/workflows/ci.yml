@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint & test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Poetry
+        run: pipx install "poetry>=2.1,<3"
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Check formatting
+        run: poetry run ruff format --check
+
+      - name: Lint
+        run: poetry run ruff check
+
+      - name: Test
+        run: poetry run pytest
+
+      - name: Check src/requirements.txt is in sync with poetry.lock
+        run: |
+          poetry export -f requirements.txt | diff -u src/requirements.txt - \
+            || { echo "::error::src/requirements.txt is stale; run 'make update' or 'poetry export -f requirements.txt --output src/requirements.txt'"; exit 1; }
+
+  template:
+    name: Lint SAM template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: cfn-lint
+        run: pipx run cfn-lint template.yml
